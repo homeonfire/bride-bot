@@ -20,9 +20,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Заставляем Laravel генерировать все ссылки (включая стили Filament) с https://
-        if (config('app.env') !== 'local') {
-            URL::forceScheme('https');
-        }
+        // Жестко форсируем HTTPS без всяких условий
+        \Illuminate\Support\Facades\URL::forceScheme('https');
     }
 }
