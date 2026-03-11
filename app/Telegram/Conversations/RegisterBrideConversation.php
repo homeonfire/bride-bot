@@ -334,29 +334,37 @@ class RegisterBrideConversation extends Conversation
             'wants_kids' => $q->wants_kids,
         ];
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
-            'Content-Type' => 'application/json',
-        ])->timeout(30)->post('https://openrouter.ai/api/v1/chat/completions', [
-            'model' => 'qwen/qwen3-vl-30b-a3b-thinking',
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => 'Ты переводчик. Переведи значения этого JSON с русского на английский. Верни ТОЛЬКО валидный JSON с теми же ключами, без лишнего текста и без форматирования markdown.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => json_encode($dataToTranslate, JSON_UNESCAPED_UNICODE)
+        try {
+            // Увеличиваем таймаут до 90 секунд
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type' => 'application/json',
+            ])->timeout(90)->post('https://openrouter.ai/api/v1/chat/completions', [
+                'model' => 'qwen/qwen3-vl-30b-a3b-thinking',
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'Ты переводчик. Переведи значения этого JSON с русского на английский. Верни ТОЛЬКО валидный JSON с теми же ключами, без лишнего текста и без форматирования markdown.'
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => json_encode($dataToTranslate, JSON_UNESCAPED_UNICODE)
+                    ]
                 ]
-            ]
-        ]);
+            ]);
 
-        if ($response->successful()) {
-            $text = $response->json('choices.0.message.content');
-            $text = str_replace(['```json', '```'], '', $text);
-            return json_decode(trim($text), true) ?? [];
+            if ($response->successful()) {
+                $text = $response->json('choices.0.message.content');
+                $text = str_replace(['```json', '```'], '', $text);
+                return json_decode(trim($text), true) ?? [];
+            }
+        } catch (\Exception $e) {
+            // Если OpenRouter завис или отвалился, логируем ошибку, 
+            // но НЕ РОНЯЕМ бота. Возвращаем пустой массив.
+            \Illuminate\Support\Facades\Log::error('AI Translation failed: ' . $e->getMessage());
         }
 
+        // Возвращаем пустой массив, если что-то пошло не так
         return [];
     }
 
