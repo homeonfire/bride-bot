@@ -311,6 +311,8 @@ class RegisterBrideConversation extends Conversation
                 $bot->sendMessage("🇬🇧 ENGLISH VERSION 🇬🇧\n\n" . $enText, chat_id: $channelId);
             }
 
+            $questionText = urlencode("София, привет 🤍 У меня вопрос");
+
             $bot->sendMessage(
                 "Готово, моя драгоценная 🤍\n".
                 "Твою анкету я уже опубликовала на канале ✨\n".
@@ -319,8 +321,8 @@ class RegisterBrideConversation extends Conversation
                 reply_markup: InlineKeyboardMarkup::make()
                     ->addRow(InlineKeyboardButton::make('👑 Подобрать мне мужчину', callback_data: 'menu_match'))
                     ->addRow(InlineKeyboardButton::make('👀 Показать анкеты мужчин', callback_data: 'menu_show_men'))
-                    ->addRow(InlineKeyboardButton::make('💎 Консультация с Софией', url: 'https://t.me/твой_юзернейм'))
-                    ->addRow(InlineKeyboardButton::make('❓ Задать вопрос', url: 'https://t.me/твой_юзернейм'))
+                    ->addRow(InlineKeyboardButton::make('Консультация с Софией 💎', callback_data: 'menu_consult'))
+                    ->addRow(InlineKeyboardButton::make('Задать вопрос ❓', url: "https://t.me/mosheinlove_1?text={$questionText}"))
             );
             $this->end();
         }
