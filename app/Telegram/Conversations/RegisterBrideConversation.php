@@ -56,11 +56,17 @@ class RegisterBrideConversation extends Conversation
             return $this->end();
         }
 
-        $bot->sendMessage("Немного официальной части 🤍\nЧтобы продолжить, мне нужно твоё согласие на обработку данных.", 
+        // Формируем текст с HTML-тегом <a> для ссылки
+        // ВАЖНО: Вместо ССЫЛКА_НА_ТВОЙ_ГУГЛ_ДОК вставь реальную ссылку от клиентки!
+        $text = "Немного официальной части 🤍\n\nЧтобы продолжить, мне нужно твоё <a href=\"https://docs.google.com/document/d/10Bbp5ci36911Fzyk34NXYf9MklAIj7kKA5RkVzAxp4g/\">согласие на обработку твоих персональных данных</a>";
+
+        $bot->sendMessage($text,
+            parse_mode: 'HTML', // Обязательно указываем Telegram, что тут есть HTML-теги
             reply_markup: InlineKeyboardMarkup::make()
                 ->addRow(InlineKeyboardButton::make('✅ Согласна', callback_data: 'agreed'))
                 ->addRow(InlineKeyboardButton::make('❌ Не согласна', callback_data: 'disagreed'))
         );
+        
         $this->next('askName');
     }
 
