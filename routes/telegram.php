@@ -7,6 +7,31 @@ use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 
+// Наш невидимый вахтер
+$bot->middleware(function (Nutgram $bot, $next) {
+    // Получаем все данные пользователя от самого Telegram
+    $tgUser = $bot->user();
+
+    if ($tgUser) {
+        // updateOrCreate сам проверит: если юзер уже есть в базе — обновит данные (вдруг он сменил ник),
+        // если нет — создаст новую запись.
+        TelegramUser::updateOrCreate(
+            ['telegram_id' => $tgUser->id],
+            [
+                'is_bot' => $tgUser->is_bot ?? false,
+                'first_name' => $tgUser->first_name,
+                'last_name' => $tgUser->last_name,
+                'username' => $tgUser->username,
+                'language_code' => $tgUser->language_code,
+                'is_premium' => $tgUser->is_premium ?? false,
+            ]
+        );
+    }
+
+    // Пропускаем запрос дальше, чтобы бот ответил юзеру как обычно
+    $next($bot);
+});
+
 // --- КОМАНДА /START ---
 $bot->onCommand('start', function (Nutgram $bot) {
     $questionnaire = Questionnaire::where('user_id', $bot->userId())->first();
