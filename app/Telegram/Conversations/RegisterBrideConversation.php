@@ -330,7 +330,8 @@ class RegisterBrideConversation extends Conversation
 
     private function translateWithAI(Questionnaire $q): array
     {
-        $apiKey = env('OPENROUTER_API_KEY');
+        // Будем использовать отдельную переменную для ключа DeepSeek
+        $apiKey = env('DEEPSEEK_API_KEY');
         if (!$apiKey) return [];
 
         $dataToTranslate = [
@@ -343,16 +344,19 @@ class RegisterBrideConversation extends Conversation
         ];
 
         try {
-            // Увеличиваем таймаут до 90 секунд
+            // Обращаемся напрямую к официальному API DeepSeek
             $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type' => 'application/json',
-            ])->timeout(90)->post('https://openrouter.ai/api/v1/chat/completions', [
-                'model' => 'qwen/qwen3-vl-30b-a3b-thinking',
+            ])->timeout(60)->post('https://api.deepseek.com/chat/completions', [
+                'model' => 'deepseek-chat', // Быстрая модель, отлично подходит для перевода
+                'response_format' => [
+                    'type' => 'json_object' // Магия! Жестко заставляем вернуть ТОЛЬКО чистый JSON
+                ],
                 'messages' => [
                     [
                         'role' => 'system',
-                        'content' => 'Ты переводчик. Переведи значения этого JSON с русского на английский. Верни ТОЛЬКО валидный JSON с теми же ключами, без лишнего текста и без форматирования markdown.'
+                        'content' => 'Ты точный переводчик. Переведи значения предоставленного JSON с русского на английский. Верни результат строго в формате JSON с теми же ключами.'
                     ],
                     [
                         'role' => 'user',
@@ -363,16 +367,25 @@ class RegisterBrideConversation extends Conversation
 
             if ($response->successful()) {
                 $text = $response->json('choices.0.message.content');
+                
+                // На всякий случай зачищаем возможную markdown-разметку (иногда модели грешат этим даже в JSON-режиме)
                 $text = str_replace(['```json', '```'], '', $text);
-                return json_decode(trim($text), true) ?? [];
+                
+                $decoded = json_decode(trim($text), true);
+                
+                if (!$decoded) {
+                    \Illuminate\Support\Facades\Log::error('DeepSeek вернул невалидный JSON: ' . $text);
+                }
+                
+                return $decoded ?? [];
+            } else {
+                // Если DeepSeek ответил ошибкой (например, кончились деньги), запишем это в лог
+                \Illuminate\Support\Facades\Log::error('Ошибка API DeepSeek: ' . $response->body());
             }
         } catch (\Exception $e) {
-            // Если OpenRouter завис или отвалился, логируем ошибку, 
-            // но НЕ РОНЯЕМ бота. Возвращаем пустой массив.
             \Illuminate\Support\Facades\Log::error('AI Translation failed: ' . $e->getMessage());
         }
 
-        // Возвращаем пустой массив, если что-то пошло не так
         return [];
     }
 
