@@ -186,26 +186,38 @@ class RegisterBrideConversation extends Conversation
             $photos = $bot->message()->photo;
             $largestPhoto = end($photos);
 
-            $currentPhotos = $this->data['photos'] ?? [];
+            $currentPhotos = [];
+            $count = 0;
 
-            if (count($currentPhotos) < 6) {
-                $currentPhotos[] = $largestPhoto->file_id;
-                $this->data['photos'] = $currentPhotos;
-
-                $questionnaire = Questionnaire::where('user_id', $bot->userId())->first();
+            // Блокируем строку в БД, чтобы параллельные фотки из альбома не перезаписывали друг друга
+            \Illuminate\Support\Facades\DB::transaction(function () use ($bot, $largestPhoto, &$currentPhotos, &$count) {
+                $questionnaire = Questionnaire::where('user_id', $bot->userId())->lockForUpdate()->first();
+                
                 if ($questionnaire) {
-                    $questionnaire->photos = $currentPhotos;
-                    $questionnaire->save();
-                }
+                    $dbPhotos = $questionnaire->photos;
+                    // Подстраховка: если фотки сохранились как строка, делаем из них массив
+                    if (is_string($dbPhotos)) {
+                        $dbPhotos = json_decode($dbPhotos, true);
+                    }
+                    $currentPhotos = $dbPhotos ?? [];
 
-                $count = count($currentPhotos);
-                if ($count >= 6) {
-                    $bot->sendMessage($this->getProgress(12) . "Отлично, все 6 фото загружены! 📸\nТвой номер телефона (в международном формате):");
-                    $this->next('askWhatsApp');
-                } else {
-                    $bot->sendMessage("Приняла ({$count}/6)! Пришли еще или напиши 'Готово'");
-                    $this->next('collectPhotos');
+                    if (count($currentPhotos) < 6) {
+                        $currentPhotos[] = $largestPhoto->file_id;
+                        $questionnaire->photos = $currentPhotos;
+                        $questionnaire->save();
+                        
+                        $this->data['photos'] = $currentPhotos;
+                    }
                 }
+                $count = count($currentPhotos);
+            });
+
+            if ($count >= 6) {
+                $bot->sendMessage($this->getProgress(12) . "Отлично, все 6 фото загружены! 📸\nТвой номер телефона (в международном формате):");
+                $this->next('askWhatsApp');
+            } else {
+                $bot->sendMessage("Приняла ({$count}/6)! Пришли еще или напиши 'Готово'");
+                $this->next('collectPhotos');
             }
         } else {
             $bot->sendMessage('Пожалуйста, отправь картинку или напиши "Готово" 🤍');
@@ -257,13 +269,19 @@ class RegisterBrideConversation extends Conversation
         }
 
         $photos = $questionnaire->photos ?? [];
+        if (is_string($photos)) $photos = json_decode($photos, true) ?? [];
 
         if (!empty($photos)) {
-            $media = [];
-            foreach ($photos as $photoId) {
-                $media[] = InputMediaPhoto::make($photoId);
+            if (count($photos) === 1) {
+                $bot->sendPhoto($photos[0]);
+            } else {
+                $media = [];
+                // Берем максимум 10 фото, так как это лимит Телеграма для медиагрупп
+                foreach (array_slice($photos, 0, 10) as $photoId) {
+                    $media[] = InputMediaPhoto::make($photoId);
+                }
+                try { $bot->sendMediaGroup($media); } catch (\Exception $e) {}
             }
-            $bot->sendMediaGroup($media);
         }
 
         $bot->sendMessage("Твоя анкета готова 🤍 (RU)\n\n" . $ruText);
@@ -299,13 +317,18 @@ class RegisterBrideConversation extends Conversation
                 $ruText = $this->buildProfileText($questionnaire, 'ru');
                 $enText = $this->buildProfileText($questionnaire, 'en');
                 $photos = $questionnaire->photos ?? [];
+                if (is_string($photos)) $photos = json_decode($photos, true) ?? [];
 
                 if (!empty($photos)) {
-                    $media = [];
-                    foreach ($photos as $photoId) {
-                        $media[] = InputMediaPhoto::make($photoId);
+                    if (count($photos) === 1) {
+                        $bot->sendPhoto($photos[0], chat_id: $channelId);
+                    } else {
+                        $media = [];
+                        foreach (array_slice($photos, 0, 10) as $photoId) {
+                            $media[] = InputMediaPhoto::make($photoId);
+                        }
+                        try { $bot->sendMediaGroup($media, chat_id: $channelId); } catch (\Exception $e) {}
                     }
-                    $bot->sendMediaGroup($media, chat_id: $channelId);
                 }
                 $bot->sendMessage("✨ НОВАЯ АНКЕТА ✨\n\n" . $ruText, chat_id: $channelId);
                 $bot->sendMessage("🇬🇧 ENGLISH VERSION 🇬🇧\n\n" . $enText, chat_id: $channelId);
