@@ -183,13 +183,30 @@ class RegisterBrideConversation extends Conversation
         }
 
         if ($bot->message()?->photo) {
+            
+            // --- ЗАЩИТА ОТ АЛЬБОМОВ (ГАЛЕРЕЙ) ---
+            if ($bot->message()->media_group_id) {
+                $groupId = $bot->message()->media_group_id;
+                
+                // Проверяем, не ругались ли мы уже на этот конкретный альбом в последние 10 секунд
+                if (!\Illuminate\Support\Facades\Cache::has('album_warning_' . $groupId)) {
+                    $bot->sendMessage("Моя хорошая, Телеграм склеивает такие галереи, и я могу потерять часть твоей красоты 🙈\n\nПожалуйста, отправляй фото строго **по одному**! 📸🤍");
+                    \Illuminate\Support\Facades\Cache::put('album_warning_' . $groupId, true, 10);
+                }
+                
+                // Оставляем на этом же шаге и прерываем выполнение (не сохраняем фото из альбома)
+                $this->next('collectPhotos');
+                return;
+            }
+            // --- КОНЕЦ ЗАЩИТЫ ---
+
             $photos = $bot->message()->photo;
             $largestPhoto = end($photos);
 
             $currentPhotos = [];
             $count = 0;
 
-            // Блокируем строку в БД, чтобы параллельные фотки из альбома не перезаписывали друг друга
+            // Блокируем строку в БД, чтобы параллельные фотки не перезаписывали друг друга
             \Illuminate\Support\Facades\DB::transaction(function () use ($bot, $largestPhoto, &$currentPhotos, &$count) {
                 $questionnaire = Questionnaire::where('user_id', $bot->userId())->lockForUpdate()->first();
                 
