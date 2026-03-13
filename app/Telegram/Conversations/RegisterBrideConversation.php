@@ -325,46 +325,62 @@ class RegisterBrideConversation extends Conversation
         }
 
         if ($action === 'publish_profile') {
-            $questionnaire = Questionnaire::where('user_id', $bot->userId())->first();
-            $questionnaire->is_published = true;
-            $questionnaire->save();
+            try {
+                $questionnaire = Questionnaire::where('user_id', $bot->userId())->first();
+                $questionnaire->is_published = true;
+                $questionnaire->save();
 
-            $channelId = env('TELEGRAM_CHANNEL_ID');
-            if ($channelId) {
-                $ruText = $this->buildProfileText($questionnaire, 'ru');
-                $enText = $this->buildProfileText($questionnaire, 'en');
-                $photos = $questionnaire->photos ?? [];
-                if (is_string($photos)) $photos = json_decode($photos, true) ?? [];
-
-                if (!empty($photos)) {
-                    if (count($photos) === 1) {
-                        $bot->sendPhoto($photos[0], chat_id: $channelId);
-                    } else {
-                        $media = [];
-                        foreach (array_slice($photos, 0, 10) as $photoId) {
-                            $media[] = InputMediaPhoto::make($photoId);
-                        }
-                        try { $bot->sendMediaGroup($media, chat_id: $channelId); } catch (\Exception $e) {}
+                $channelId = env('TELEGRAM_CHANNEL_ID');
+                
+                if ($channelId) {
+                    $ruText = $this->buildProfileText($questionnaire, 'ru');
+                    $enText = $this->buildProfileText($questionnaire, 'en');
+                    
+                    // Безопасное извлечение фото
+                    $photos = $questionnaire->photos ?? [];
+                    if (is_string($photos)) {
+                        $photos = json_decode($photos, true) ?? [];
                     }
+
+                    if (!empty($photos)) {
+                        if (count($photos) === 1) {
+                            $bot->sendPhoto($photos[0], chat_id: $channelId);
+                        } else {
+                            $media = [];
+                            foreach (array_slice($photos, 0, 10) as $photoId) {
+                                $media[] = InputMediaPhoto::make($photoId);
+                            }
+                            $bot->sendMediaGroup($media, chat_id: $channelId);
+                        }
+                    }
+                    
+                    $bot->sendMessage("✨ НОВАЯ АНКЕТА ✨\n\n" . $ruText, chat_id: $channelId);
+                    $bot->sendMessage("🇬🇧 ENGLISH VERSION 🇬🇧\n\n" . $enText, chat_id: $channelId);
                 }
-                $bot->sendMessage("✨ НОВАЯ АНКЕТА ✨\n\n" . $ruText, chat_id: $channelId);
-                $bot->sendMessage("🇬🇧 ENGLISH VERSION 🇬🇧\n\n" . $enText, chat_id: $channelId);
+
+                // Формируем финальное меню
+                $questionText = urlencode("София, привет 🤍 У меня вопрос");
+
+                $bot->sendMessage(
+                    "Готово, моя драгоценная 🤍\n".
+                    "Твою анкету я уже опубликовала на канале ✨\n".
+                    "Дальше всё просто: мужчины смотрят анкеты, выбирают ❤️ и как только по тебе будет интерес, я дам тебе знать ✨\n\n".
+                    "А пока можешь выбрать, как тебе комфортнее двигаться дальше:",
+                    reply_markup: InlineKeyboardMarkup::make()
+                        ->addRow(InlineKeyboardButton::make('👑 Подобрать мне мужчину', callback_data: 'menu_match'))
+                        ->addRow(InlineKeyboardButton::make('👀 Показать анкеты мужчин', callback_data: 'menu_show_men'))
+                        ->addRow(InlineKeyboardButton::make('Консультация с Софией 💎', callback_data: 'menu_consult'))
+                        ->addRow(InlineKeyboardButton::make('Задать вопрос ❓', url: "https://t.me/mosheinlove_1?text={$questionText}"))
+                );
+                
+                $this->end();
+
+            } catch (\Exception $e) {
+                // Если Telegram не дал опубликовать анкету, бот не зависнет!
+                // Он выведет ошибку в лог, чтобы мы поняли причину.
+                \Illuminate\Support\Facades\Log::error('Ошибка публикации в канал: ' . $e->getMessage());
+                $bot->sendMessage("Ой, произошла техническая ошибка при публикации на канал 🙈\nНо твоя анкета сохранена!");
             }
-
-            $questionText = urlencode("София, привет 🤍 У меня вопрос");
-
-            $bot->sendMessage(
-                "Готово, моя драгоценная 🤍\n".
-                "Твою анкету я уже опубликовала на канале ✨\n".
-                "Дальше всё просто: мужчины смотрят анкеты, выбирают ❤️ и как только по тебе будет интерес, я дам тебе знать ✨\n\n".
-                "А пока можешь выбрать, как тебе комфортнее двигаться дальше:",
-                reply_markup: InlineKeyboardMarkup::make()
-                    ->addRow(InlineKeyboardButton::make('👑 Подобрать мне мужчину', callback_data: 'menu_match'))
-                    ->addRow(InlineKeyboardButton::make('👀 Показать анкеты мужчин', callback_data: 'menu_show_men'))
-                    ->addRow(InlineKeyboardButton::make('Консультация с Софией 💎', callback_data: 'menu_consult'))
-                    ->addRow(InlineKeyboardButton::make('Задать вопрос ❓', url: "https://t.me/mosheinlove_1?text={$questionText}"))
-            );
-            $this->end();
         }
     }
 
