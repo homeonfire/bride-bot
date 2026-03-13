@@ -186,51 +186,38 @@ class RegisterBrideConversation extends Conversation
             $photos = $bot->message()->photo;
             $largestPhoto = end($photos);
 
-            // 1. Ставим жесткий турникет через кэш Laravel. 
-            // Все параллельные фото из альбома встанут в очередь и будут заходить строго по одному.
-            $lock = \Illuminate\Support\Facades\Cache::lock('photo_upload_' . $bot->userId(), 10);
-            
+            $currentPhotos = [];
             $count = 0;
 
-            try {
-                // Процесс ждет своей очереди до 5 секунд
-                if ($lock->block(5)) {
-                    $questionnaire = Questionnaire::where('user_id', $bot->userId())->first();
-                    
-                    if ($questionnaire) {
-                        $currentPhotos = $questionnaire->photos ?? [];
-                        // Подстраховка для формата данных
-                        if (is_string($currentPhotos)) {
-                            $currentPhotos = json_decode($currentPhotos, true) ?? [];
-                        }
+            // Блокируем строку в БД, чтобы параллельные фотки из альбома не перезаписывали друг друга
+            \Illuminate\Support\Facades\DB::transaction(function () use ($bot, $largestPhoto, &$currentPhotos, &$count) {
+                $questionnaire = Questionnaire::where('user_id', $bot->userId())->lockForUpdate()->first();
+                
+                if ($questionnaire) {
+                    $dbPhotos = $questionnaire->photos;
+                    // Подстраховка: если фотки сохранились как строка, делаем из них массив
+                    if (is_string($dbPhotos)) {
+                        $dbPhotos = json_decode($dbPhotos, true);
+                    }
+                    $currentPhotos = $dbPhotos ?? [];
 
-                        if (count($currentPhotos) < 6) {
-                            $currentPhotos[] = $largestPhoto->file_id;
-                            $questionnaire->photos = $currentPhotos;
-                            $questionnaire->save();
-                            
-                            $count = count($currentPhotos);
-                        } else {
-                            $count = count($currentPhotos);
-                        }
+                    if (count($currentPhotos) < 6) {
+                        $currentPhotos[] = $largestPhoto->file_id;
+                        $questionnaire->photos = $currentPhotos;
+                        $questionnaire->save();
+                        
+                        $this->data['photos'] = $currentPhotos;
                     }
                 }
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::warning('Очередь фото отвалилась: ' . $e->getMessage());
-            } finally {
-                // Обязательно открываем турникет для следующей фотки
-                optional($lock)->release();
-            }
+                $count = count($currentPhotos);
+            });
 
-            // 2. Отправляем ответ только после успешной записи
-            if ($count > 0) {
-                if ($count >= 6) {
-                    $bot->sendMessage($this->getProgress(12) . "Отлично, все 6 фото загружены! 📸\nТвой номер телефона (в международном формате):");
-                    $this->next('askWhatsApp');
-                } else {
-                    $bot->sendMessage("Приняла ({$count}/6)! Пришли еще или напиши 'Готово'");
-                    $this->next('collectPhotos');
-                }
+            if ($count >= 6) {
+                $bot->sendMessage($this->getProgress(12) . "Отлично, все 6 фото загружены! 📸\nТвой номер телефона (в международном формате):");
+                $this->next('askWhatsApp');
+            } else {
+                $bot->sendMessage("Приняла ({$count}/6)! Пришли еще или напиши 'Готово'");
+                $this->next('collectPhotos');
             }
         } else {
             $bot->sendMessage('Пожалуйста, отправь картинку или напиши "Готово" 🤍');
