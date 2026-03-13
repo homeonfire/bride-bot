@@ -4,6 +4,7 @@
 use App\Models\Questionnaire;
 use App\Telegram\Conversations\RegisterBrideConversation;
 use SergiX44\Nutgram\Nutgram;
+use App\Models\TelegramUser;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 
