@@ -359,7 +359,7 @@ class RegisterBrideConversation extends Conversation
                 }
 
                 // Формируем финальное меню
-                $questionText = urlencode("София, привет 🤍 У меня вопрос");
+                $questionText = rawurlencode("София, привет 🤍 У меня вопрос");
 
                 $bot->sendMessage(
                     "Готово, моя драгоценная 🤍\n".

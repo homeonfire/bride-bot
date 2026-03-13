@@ -12,7 +12,7 @@ $bot->onCommand('start', function (Nutgram $bot) {
     $questionnaire = Questionnaire::where('user_id', $bot->userId())->first();
 
     if ($questionnaire && $questionnaire->is_published) {
-        $questionText = urlencode("София, привет 🤍 У меня вопрос");
+        $questionText = rawurlencode("София, привет 🤍 У меня вопрос");
         // При старте всегда отправляем новое сообщение
         $bot->sendMessage(
             "Моя драгоценная, твоя анкета уже заполнена и опубликована! 🤍\nВыбери, как тебе комфортнее двигаться дальше:",
@@ -32,7 +32,7 @@ $bot->onCommand('start', function (Nutgram $bot) {
 $bot->onCallbackQueryData('back_to_main', function (Nutgram $bot) {
     $bot->answerCallbackQuery();
     
-    $questionText = urlencode("София, привет 🤍 У меня вопрос");
+    $questionText = rawurlencode("София, привет 🤍 У меня вопрос");
     
     // Редактируем текущее сообщение, возвращая главное меню
     $bot->editMessageText(
@@ -51,7 +51,7 @@ $bot->onCallbackQueryData('menu_match', function (Nutgram $bot) {
     $q = Questionnaire::where('user_id', $bot->userId())->first();
     
     $text = "София, выбирай мне мужчину.\nЯ заслужила лучшего 😄✨\n\nМои данные:\n{$q->name}, {$q->age} лет\nТелефон: {$q->phone}";
-    $encodedText = urlencode($text);
+    $encodedText = rawurlencode($text);
 
     $bot->editMessageText(
         "Хочешь, чтобы мы подобрали тебе мужчину персонально? 🤍\nЖми кнопку и мне прилетит твой запрос, чтобы мы могли начать подбор ✨",
@@ -78,7 +78,7 @@ $bot->onCallbackQueryData('menu_consult', function (Nutgram $bot) {
     $q = Questionnaire::where('user_id', $bot->userId())->first();
     
     $text = "София, привет 🤍 Хочу к тебе консультацию, чтобы найти своего мужчину 👑🐎\n\nМои данные:\n{$q->name}, {$q->age} лет\nГород: {$q->location}\nТелефон: {$q->phone}";
-    $encodedText = urlencode($text);
+    $encodedText = rawurlencode($text);
 
     $msg = "Консультация с Софией\n".
            "Помогаю тебе найти своего мужчину: составить сильную анкету знакомств и “упаковать” тебя так, чтобы откликались достойные и успешные.\n\n".
