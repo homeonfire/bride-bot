@@ -272,19 +272,11 @@ class RegisterBrideConversation extends Conversation
             $this->data
         );
 
-        $bot->sendMessage("Готово, моя драгоценная 🤍\nСейчас оформлю твою карточку на русском и английском и публикую в канале, пусть мужчины увидят, какая ты 👇✨");
+        $bot->sendMessage("Готово, моя драгоценная 🤍\nСейчас оформлю твою карточку и подготовлю к публикации 👇✨");
 
         $ruText = $this->buildProfileText($questionnaire, 'ru');
-        $waitMsg = $bot->sendMessage("⏳ Перевожу твою анкету через нейросеть, подожди пару секунд...");
 
-        $enData = $this->translateWithAI($questionnaire);
-        $questionnaire->en_text = $enData;
-        $questionnaire->save();
-
-        if ($waitMsg) {
-            try { $bot->deleteMessage($bot->chatId(), $waitMsg->message_id); } catch (\Exception $e) {}
-        }
-
+        // Вывод фото для превью пользователю
         $photos = $questionnaire->photos ?? [];
         if (is_string($photos)) $photos = json_decode($photos, true) ?? [];
 
@@ -293,7 +285,6 @@ class RegisterBrideConversation extends Conversation
                 $bot->sendPhoto($photos[0]);
             } else {
                 $media = [];
-                // Берем максимум 10 фото, так как это лимит Телеграма для медиагрупп
                 foreach (array_slice($photos, 0, 10) as $photoId) {
                     $media[] = InputMediaPhoto::make($photoId);
                 }
@@ -301,10 +292,8 @@ class RegisterBrideConversation extends Conversation
             }
         }
 
-        $bot->sendMessage("Твоя анкета готова 🤍 (RU)\n\n" . $ruText);
-
-        $enText = $this->buildProfileText($questionnaire, 'en');
-        $bot->sendMessage("Your profile is ready 🤍 (EN)\n\n" . $enText, 
+        // Показываем только русскую анкету и кнопки действий
+        $bot->sendMessage("Твоя анкета готова 🤍\n\n" . $ruText, 
             reply_markup: InlineKeyboardMarkup::make()
                 ->addRow(InlineKeyboardButton::make('✅ Опубликовать в канал', callback_data: 'publish_profile'))
                 ->addRow(InlineKeyboardButton::make('✏️ Изменить ответы', callback_data: 'restart_profile'))
@@ -334,14 +323,13 @@ class RegisterBrideConversation extends Conversation
                 
                 if ($channelId) {
                     $ruText = $this->buildProfileText($questionnaire, 'ru');
-                    $enText = $this->buildProfileText($questionnaire, 'en');
                     
-                    // Безопасное извлечение фото
                     $photos = $questionnaire->photos ?? [];
                     if (is_string($photos)) {
                         $photos = json_decode($photos, true) ?? [];
                     }
 
+                    // 1. Сначала отправляем фото в канал
                     if (!empty($photos)) {
                         if (count($photos) === 1) {
                             $bot->sendPhoto($photos[0], chat_id: $channelId);
@@ -354,13 +342,12 @@ class RegisterBrideConversation extends Conversation
                         }
                     }
                     
+                    // 2. Отправляем только русскую версию текста
                     $bot->sendMessage("✨ НОВАЯ АНКЕТА ✨\n\n" . $ruText, chat_id: $channelId);
-                    $bot->sendMessage("🇬🇧 ENGLISH VERSION 🇬🇧\n\n" . $enText, chat_id: $channelId);
                 }
 
-                // Формируем финальное меню
+                // Финальное сообщение пользователю
                 $questionText = rawurlencode("София, привет 🤍 У меня вопрос");
-
                 $bot->sendMessage(
                     "Готово, моя драгоценная 🤍\n".
                     "Твою анкету я уже опубликовала на канале ✨\n".
@@ -376,10 +363,8 @@ class RegisterBrideConversation extends Conversation
                 $this->end();
 
             } catch (\Exception $e) {
-                // Если Telegram не дал опубликовать анкету, бот не зависнет!
-                // Он выведет ошибку в лог, чтобы мы поняли причину.
-                \Illuminate\Support\Facades\Log::error('Ошибка публикации в канал: ' . $e->getMessage());
-                $bot->sendMessage("Ой, произошла техническая ошибка при публикации на канал 🙈\nНо твоя анкета сохранена!");
+                \Illuminate\Support\Facades\Log::error('Ошибка публикации: ' . $e->getMessage());
+                $bot->sendMessage("Ой, произошла техническая ошибка при публикации 🙈 Но твоя анкета сохранена!");
             }
         }
     }
