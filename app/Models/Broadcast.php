@@ -7,7 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 class Broadcast extends Model
 {
     protected $fillable = [
-        'title', 'message', 'photo_file_id', 
-        'status', 'sent_count', 'error_count'
+        'title', 
+        'message', 
+        'image_path', // <-- Обязательно должно быть здесь!
+        'photo_file_id', 
+        'status', 
+        'sent_count', 
+        'error_count'
     ];
 }
