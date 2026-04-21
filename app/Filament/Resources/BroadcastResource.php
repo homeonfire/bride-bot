@@ -71,7 +71,7 @@ class BroadcastResource extends Resource
                         default => $state,
                     }),
                 TextColumn::make('sent_count')->label('Доставлено')->color('success'),
-                TextColumn::make('error_count')->label('Ошибок')->color('danger'),
+                TextColumn::make('error_count')->label('Не доставлено (отписка)')->color('danger'),
                 TextColumn::make('created_at')->label('Дата создания')->dateTime('d.m.Y H:i')->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
