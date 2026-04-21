@@ -69,14 +69,14 @@ class SendTelegramBroadcast implements ShouldQueue
                 if ($fileId) {
                     $bot->sendPhoto(
                         photo: $fileId,
-                        chat_id: $user->id,
+                        chat_id: $user->telegram_id, // <--- ИСПРАВЛЕНО ТУТ
                         caption: $this->broadcast->message,
                         parse_mode: ParseMode::HTML
                     );
                 } else {
                     $bot->sendMessage(
                         text: $this->broadcast->message,
-                        chat_id: $user->id,
+                        chat_id: $user->telegram_id, // <--- И ИСПРАВЛЕНО ТУТ
                         parse_mode: ParseMode::HTML
                     );
                 }
@@ -86,7 +86,7 @@ class SendTelegramBroadcast implements ShouldQueue
                 $errorCount++;
             }
 
-            usleep(50000); // 50 миллисекунд пауза (~20 сообщений в секунду, чтобы не забанил Telegram)
+            usleep(100000); // 50 миллисекунд пауза
         }
 
         // === ЭТАП 3: ФИНАЛИЗАЦИЯ ===
