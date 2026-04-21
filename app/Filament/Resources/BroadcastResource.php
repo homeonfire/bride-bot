@@ -19,6 +19,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Storage;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
+use SergiX44\Nutgram\Telegram\Types\Internal\InputFile;
 
 class BroadcastResource extends Resource
 {
@@ -94,8 +95,13 @@ class BroadcastResource extends Resource
                             } elseif ($record->image_path) {
                                 // Загружаем картинку впервые
                                 $stream = fopen(Storage::disk('public')->path($record->image_path), 'r');
-                                $message = $bot->sendPhoto(photo: $stream, chat_id: $data['tg_id'], caption: $record->message, parse_mode: ParseMode::HTML);
-                                
+                                // СТАЛО:
+                                $message = $bot->sendPhoto(
+                                    photo: InputFile::make($stream), 
+                                    chat_id: $data['tg_id'], 
+                                    caption: $record->message, 
+                                    parse_mode: ParseMode::HTML
+                                );
                                 // Сохраняем file_id для будущей массовой рассылки!
                                 $photos = $message->photo;
                                 if (!empty($photos)) {

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\ParseMode;
+use SergiX44\Nutgram\Telegram\Types\Internal\InputFile;
 
 class SendTelegramBroadcast implements ShouldQueue
 {
@@ -41,7 +42,7 @@ class SendTelegramBroadcast implements ShouldQueue
             try {
                 $stream = fopen(Storage::disk('public')->path($this->broadcast->image_path), 'r');
                 $message = $bot->sendPhoto(
-                    photo: $stream,
+                    photo: InputFile::make($stream),
                     chat_id: $adminTgId,
                     caption: "⚙️ [Системное] Картинка загружена на сервера Telegram для рассылки: <b>" . $this->broadcast->title . "</b>",
                     parse_mode: ParseMode::HTML
